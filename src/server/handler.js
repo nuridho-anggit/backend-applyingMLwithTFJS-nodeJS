@@ -1,13 +1,14 @@
 const predictClassification = require('../services/inferenceService');
 const crypto = require('crypto');
 const storeData = require('../services/storeData');
+const getDataFirestore = require('../services/getData');
 const InputError = require('../exceptions/InputError');
 
 const MAX_FILE_SIZE = 1000000; // 1MB
 
 async function postPredictHandler(request, h) {
     const { image } = request.payload;
-    
+
     if (Buffer.byteLength(image, 'base64') > MAX_FILE_SIZE) {
         const response = h.response({
             status: 'fail',
@@ -16,13 +17,13 @@ async function postPredictHandler(request, h) {
         response.code(413);
         return response;
     }
-    
+
     const { model } = request.server.app;
 
     try {
-        
+
         const { label_final, suggestion } = await predictClassification(model, image);
-        
+
         const id = crypto.randomUUID();
         const createdAt = new Date().toISOString();
 
@@ -44,7 +45,7 @@ async function postPredictHandler(request, h) {
         return response;
 
     } catch (error) {
-        
+
         const response = h.response({
             status: 'fail',
             message: 'Terjadi kesalahan dalam melakukan prediksi'
@@ -54,4 +55,27 @@ async function postPredictHandler(request, h) {
     }
 }
 
-module.exports = postPredictHandler;
+async function getHistoriesHandler(request, h) {
+    try {
+        const predictions = await getDataFirestore();
+        
+        const response = h.response({
+            status: 'success',
+            data: predictions
+        });
+        response.code(200);
+        return response;
+        
+    } catch (error) {
+        console.error('Error fetching prediction histories:', error);
+
+        const response = h.response({
+            status: 'fail',
+            message: 'Terjadi kesalahan dalam mengambil riwayat prediksi'
+        });
+        response.code(500);
+        return response;
+    }
+}
+
+module.exports = {postPredictHandler, getHistoriesHandler};
